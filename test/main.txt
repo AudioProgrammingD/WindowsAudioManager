@@ -1,0 +1,100 @@
+#include "AudioSwitcher/AudioSwitcher.h"
+#include <iostream>
+#include "Utility/DeviceUtils.h"
+#include "Utility/COMInitializer.h"
+#include "Utility/SafeRelease.h"
+using namespace AudioSwitcher;
+using namespace Utility;
+
+int main()
+{
+    COMInitializer comInit;
+
+    try
+    {
+
+        // Show current default playback device
+        IMMDevice *defaultDevice = GetDefaultAudioPlaybackDevice();
+        if (defaultDevice)
+        {
+            std::wcout << L"[Default Device] " << GetDeviceFriendlyName(defaultDevice) << L"\n\n";
+            auto fmt = GetDeviceFormatInfo(defaultDevice);
+            if (fmt.valid)
+            {
+                std::wcout << L"[+] Sample Rate : " << fmt.sampleRate << L" Hz\n";
+                std::wcout << L"[+] Channels    : " << fmt.channels << L"\n";
+                std::wcout << L"[+] Bit Depth   : " << fmt.bitDepth << L"\n";
+                std::wcout << L"[+] Block Align : " << fmt.blockAlign << L"\n";
+            }
+            SafeRelease(defaultDevice);
+        }
+        else
+        {
+            std::wcout << L"[!] Unable to retrieve default playback device.\n\n";
+        }
+
+        std::cout
+            << "Available Playback Devices:\n";
+        auto devices = AudioManager::listOutputDevices();
+
+        for (size_t i = 0; i < devices.size(); ++i)
+        {
+            // Convert std::wstring to std::string (simple lossy narrow)
+            std::wstring ws = devices[i].name;
+            std::wstring name = devices[i].name;
+            std::wstring id = devices[i].id;
+            std::wcout << L"ID:" << id << L"\n"
+                       << "Name:" << name << "\n\n";
+            name = GetDeviceFriendlyName(devices[i].device);
+            auto fmt = GetDeviceFormatInfo(devices[i].device);
+            if (fmt.valid)
+            {
+                std::wcout << L"  Sample Rate : " << fmt.sampleRate << L" Hz\n";
+                std::wcout << L"  Channels    : " << fmt.channels << L"\n";
+                std::wcout << L"  Bit Depth   : " << fmt.bitDepth << L"\n";
+                std::wcout << L"  Block Align : " << fmt.blockAlign << L"\n";
+            }
+        }
+
+        std::cout << "\nEnter the number of the device to set as default: ";
+        int choice = -1;
+        std::cin >> choice;
+
+        if (choice >= 0 && choice < devices.size())
+        {
+            std::wstring selectedName = devices[choice].name;
+
+            std::wcout << L"\n[+] Switching to: " << selectedName << L"\n[+] DeviceID:" << devices[choice].id << "\n";
+            auto fmt = GetDeviceFormatInfo(devices[choice].device);
+            if (fmt.valid)
+            {
+                std::wcout << L"[+] Sample Rate : " << fmt.sampleRate << L" Hz\n";
+                std::wcout << L"[+] Channels    : " << fmt.channels << L"\n";
+                std::wcout << L"[+] Bit Depth   : " << fmt.bitDepth << L"\n";
+                std::wcout << L"[+] Block Align : " << fmt.blockAlign << L"\n";
+            }
+            if (AudioManager::setDefaultOutputDevice(devices[choice].id))
+            {
+                std::cout << "[OK] Successfully switched default playback device.\n";
+            }
+            else
+            {
+                std::cout << "[Not OK] Failed to switch default device.\n";
+            }
+        }
+        else
+        {
+            std::cout << "Invalid choice.\n";
+        }
+
+        devices.clear();
+        return 0;
+    }
+    catch (const std::exception &ex)
+    {
+        std::cerr << "[Fatal Error] " << ex.what() << "\n";
+        return 1;
+    }
+
+    return 0;
+}
