@@ -55,6 +55,16 @@ namespace Utility
     AUDIO_SWITCHER_API IMMDevice *GetDefaultAudioPlaybackDevice();
 
     /**
+     * @brief Retrieves the system's current default audio **input** (capture) device.
+     *
+     * This corresponds to the default microphone shown in Windows sound settings.
+     * Caller is responsible for releasing the returned pointer using `SafeRelease()`.
+     *
+     * @return IMMDevice* Pointer to the default input device. Returns nullptr on failure.
+     */
+    AUDIO_SWITCHER_API IMMDevice *GetDefaultAudioInputDevice();
+
+    /**
      * @brief Mutes or unmutes the default audio playback device.
      *
      * This uses IAudioEndpointVolume COM interface to control the system volume mute state.
@@ -63,6 +73,14 @@ namespace Utility
      * @return true if successful, false otherwise.
      */
     AUDIO_SWITCHER_API bool SetDefaultPlaybackDeviceMute(bool mute);
+
+    /**
+     * @brief Mutes or unmutes the default audio input (microphone) device.
+     *
+     * @param mute True to mute, false to unmute.
+     * @return True if successful, false otherwise.
+     */
+    AUDIO_SWITCHER_API bool SetDefaultInputDeviceMute(bool mute);
 
     /**
      * @brief Mutes or unmutes the given audio playback device.

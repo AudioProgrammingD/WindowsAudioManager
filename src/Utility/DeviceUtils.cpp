@@ -158,6 +158,56 @@ namespace Utility
     }
 
     /**
+     * @brief Retrieves the system's current default audio input (capture) device.
+     *
+     * This function uses the Windows Core Audio API to query the default audio endpoint
+     * for the `eCapture` data flow and the `eConsole` role.
+     *
+     * It safely initializes COM for the current thread if needed, and uninitializes it
+     * after the operation. If the caller already initialized COM, this will still work safely.
+     *
+     * @note Caller is responsible for releasing the returned IMMDevice pointer using `SafeRelease`.
+     *
+     * @return IMMDevice* Pointer to the default audio input device, or nullptr on failure.
+     */
+    IMMDevice *GetDefaultAudioInputDevice()
+    {
+        // Initialize COM for this thread if not already initialized.
+        // bool comInitialized = SUCCEEDED(CoInitialize(nullptr));
+
+        IMMDeviceEnumerator *pEnum = nullptr;
+        IMMDevice *pDefaultDevice = nullptr;
+
+        // Create the device enumerator COM object.
+        HRESULT hr = CoCreateInstance(
+            __uuidof(MMDeviceEnumerator),
+            nullptr,
+            CLSCTX_ALL,
+            __uuidof(IMMDeviceEnumerator),
+            (void **)&pEnum);
+
+        if (FAILED(hr) || !pEnum)
+        {
+            // if (comInitialized)
+            //     CoUninitialize();
+            return nullptr;
+        }
+
+        // Retrieve the default input device (capture, console role).
+        hr = pEnum->GetDefaultAudioEndpoint(eCapture, eConsole, &pDefaultDevice);
+        SafeRelease(pEnum);
+
+        if (FAILED(hr))
+        {
+            // if (comInitialized)
+            //     CoUninitialize();
+            return nullptr;
+        }
+
+        return pDefaultDevice;
+    }
+
+    /**
      * @brief Sets the mute state for the default audio playback device.
      *
      * This function retrieves the default audio playback device, activates its endpoint volume interface,
@@ -197,6 +247,54 @@ namespace Utility
         // Clean up resources
         // endpointVolume->Release();
         // device->Release();
+        SafeRelease(endpointVolume);
+        SafeRelease(device);
+
+        return SUCCEEDED(hr);
+    }
+
+    /**
+     * @brief Sets the mute state for the default audio input (capture) device.
+     *
+     * This function retrieves the default audio input device, activates its endpoint volume interface,
+     * and sets the mute state according to the specified parameter. All resources are properly released
+     * before returning.
+     *
+     * @param mute Boolean value indicating the desired mute state:
+     *             - true: mute the device (microphone)
+     *             - false: unmute the device
+     *
+     * @return bool Returns true if the operation succeeded, false otherwise.
+     *
+     * @note Caller must ensure COM is initialized for the current thread.
+     * @see GetDefaultAudioInputDevice()
+     */
+    bool SetDefaultInputDeviceMute(bool mute)
+    {
+        // Get default audio input (microphone) device
+        IMMDevice *device = GetDefaultAudioInputDevice();
+        if (!device)
+            return false;
+
+        IAudioEndpointVolume *endpointVolume = nullptr;
+
+        // Activate endpoint volume interface on input device
+        HRESULT hr = device->Activate(
+            __uuidof(IAudioEndpointVolume),
+            CLSCTX_ALL,
+            nullptr,
+            (void **)&endpointVolume);
+
+        if (FAILED(hr) || !endpointVolume)
+        {
+            SafeRelease(device);
+            return false;
+        }
+
+        // Set mute or unmute
+        hr = endpointVolume->SetMute(mute ? TRUE : FALSE, nullptr);
+
+        // Clean up
         SafeRelease(endpointVolume);
         SafeRelease(device);
 

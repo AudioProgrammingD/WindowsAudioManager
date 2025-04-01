@@ -4,10 +4,10 @@
 
 It wraps the Windows Core Audio APIs (COM-based) to provide a simple, modern, and safe interface for:
 
-- 🔎 Enumerating audio devices
-- ✅ Switching the system default output device
-- 🔇 Muting specific or default devices
-- 📊 Retrieving detailed audio format metadata
+- 🔎 Enumerating playback and recording devices
+- ✅ Switching default playback or input device
+- 🔇 Muting/unmuting specific or default devices
+- 📊 Fetching audio format metadata (bit depth, sample rate, channels)
 
 Built with **RAII-compliance**, **static/dynamic library support**, and modularity in mind — perfect for integrating into modern C++ applications or tools.
 
@@ -44,7 +44,7 @@ All credit to the original author for documenting and exposing this functionalit
 - 🔎 List all active audio output devices (IMMDevice)
 - 📛 Retrieve friendly device name
 - 🎚️ Access audio format metadata (bit depth, channels, sample rate)
-- 🔇 Mute/unmute default or specific device
+- 🔇 Mute/unmute default or specific device (input/output)
 - 🛠️ RAII-style `COMInitializer` helper
 - 🔄 Build as either static `.lib` or shared `.dll + .lib`
 
@@ -55,7 +55,8 @@ All credit to the original author for documenting and exposing this functionalit
 ```bash
 WinAudioManager/
 ├── include/
-│   ├── AudioSwitcher/AudioSwitcher.h
+│   ├── AudioSwitcher/AudioSwitcher.h           # Playback (output)
+│   ├── AudioSwitcher/AudioInputSwitcher.h      # Input (microphones)
 │   └── Utility/
 │       ├── COMInitializer.h
 │       ├── DeviceUtils.h
@@ -63,14 +64,14 @@ WinAudioManager/
 │       └── SafeRelease.h
 ├── src/
 │   ├── AudioSwitcher/AudioSwitcher.cpp
-│   ├── AudioSwitcher/AudioSwitcherDummy.cpp
+│   ├── AudioSwitcher/AudioInputSwitcher.cpp
 │   └── Utility/
 │       ├── COMInitializer.cpp
 │       └── DeviceUtils.cpp
 ├── test/
 │   └── main.cpp
-├── bin/         # Built DLLs and test executables
-├── lib/         # Static and import libraries
+├── bin/         # Built DLLs and test apps
+├── lib/         # Static/shared libraries
 └── CMakeLists.txt
 ```
 
@@ -174,6 +175,97 @@ Mute or unmute a specific device by its IMMDevice pointer.
 | `device`  | `IMMDevice*`  | Device to control |
 | `mute`    | `bool`        | `true = mute`     |
 
+### 🎙️ `bool AudioInputManager::setDefaultInputDevice(const std::wstring& id);`
+
+Sets the device with the given ID as the new default **input (recording)** device.
+
+| Parameter | Type           | Description                            |
+|-----------|----------------|----------------------------------------|
+| `id`      | `std::wstring` | Device ID string (from IMMDevice::GetId) |
+
+**Returns:** `true` if successful, `false` otherwise.
+
+---
+
+### 🎙️ `std::vector<AudioDevice> AudioInputManager::listInputDevices();`
+
+Lists all **active audio input (capture)** devices (e.g., microphones).
+
+**Returns:**  
+`std::vector<AudioDevice>` — each containing:
+
+- `id`: unique device identifier
+- `name`: friendly display name
+- `device`: raw `IMMDevice*` pointer (can be used for mute/format)
+
+---
+
+### 🎙️ `IMMDevice* GetDefaultAudioInputDevice();`
+
+Retrieves the system’s **default input** (microphone) device.
+
+- ⚠️ You must `SafeRelease()` the returned pointer after use.
+- ✅ COM-safe and handles errors internally.
+
+**Returns:** `IMMDevice*` (nullptr on failure)
+
+---
+
+### 🔇 `bool SetDefaultInputDeviceMute(bool mute);`
+
+Mute or unmute the **default input device**.
+
+| Parameter | Type | Description         |
+|-----------|------|---------------------|
+| `mute`    | bool | `true = mute`, `false = unmute` |
+
+**Returns:** `true` if successful, `false` otherwise.
+
+---
+
+## 📘 API Reference
+
+### 🔊 Output (Playback) Devices
+
+| Function | Description |
+|----------|-------------|
+| `AudioManager::listOutputDevices()` | Lists active playback devices |
+| `AudioManager::setDefaultOutputDevice(id)` | Sets default output device |
+| `GetDefaultAudioPlaybackDevice()` | Returns current default output device |
+| `SetDefaultPlaybackDeviceMute(bool)` | Mute/unmute default output |
+| `MuteDevice(device, mute)` | Mute/unmute any output device |
+| `GetDeviceFriendlyName(device)` | Retrieves friendly name |
+| `GetDeviceFormatInfo(device)` | Returns format metadata |
+
+---
+
+### 🎙️ Input (Microphone) Devices
+
+| Function | Description |
+|----------|-------------|
+| `AudioInputManager::listInputDevices()` | Lists active input devices |
+| `AudioInputManager::setDefaultInputDevice(id)` | Sets default input device |
+| `GetDefaultAudioInputDevice()` | Gets current default input |
+| `SetDefaultInputDeviceMute(bool)` | Mute/unmute default input |
+| `MuteDevice(device, mute)` | Mute/unmute specific input device (same method) |
+
+---
+
+## 🔄 Input vs Output API Comparison
+
+This library provides a **symmetric API** for working with both **Playback (Output)** and **Input (Recording)** devices, making it intuitive and consistent.
+
+| 🧩 Function Type                          | 🎧 Playback (Output)                             | 🎙️ Input (Recording)                               |
+|------------------------------------------|--------------------------------------------------|----------------------------------------------------|
+| 🔍 List Devices                          | `AudioManager::listOutputDevices()`              | `AudioInputManager::listInputDevices()`            |
+| ✅ Set Default Device                    | `AudioManager::setDefaultOutputDevice(id)`       | `AudioInputManager::setDefaultInputDevice(id)`     |
+| 🎯 Get Default Device Pointer           | `GetDefaultAudioPlaybackDevice()`                | `GetDefaultAudioInputDevice()`                     |
+| 📛 Get Friendly Name                     | `GetDeviceFriendlyName(IMMDevice* device)`       | ✅ Same for both                                    |
+| 📊 Get Audio Format Info                 | `GetDeviceFormatInfo(IMMDevice* device)`         | ✅ Same for both                                    |
+| 🔇 Mute Default Device                   | `SetDefaultPlaybackDeviceMute(bool mute)`        | `SetDefaultInputDeviceMute(bool mute)`             |
+| 🔇 Mute Specific Device (by pointer)     | `MuteDevice(IMMDevice* device, bool mute)`       | ✅ Same for both                                    |
+
+> 💡 All APIs are RAII-friendly and designed with safe COM lifecycle management in mind.
 ---
 
 ## 💡 Example Usage
