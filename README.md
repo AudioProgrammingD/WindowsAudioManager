@@ -309,11 +309,13 @@ target_link_libraries(MyApp PRIVATE AudioSwitcherStatic)  # or AudioSwitcherShar
 
 ---
 
+<!--  
 ## 📄 License
 
 MIT License — Use freely in commercial, personal, and open-source projects.
 
 ---
+-->
 
 ## 🙏 Acknowledgments
 
